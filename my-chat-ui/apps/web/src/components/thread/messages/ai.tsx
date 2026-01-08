@@ -7,7 +7,7 @@ import { MarkdownText } from "../markdown-text";
 import { LoadExternalComponent } from "@langchain/langgraph-sdk/react-ui";
 import { cn } from "@/lib/utils";
 import { ToolCalls, ToolResult } from "./tool-calls";
-import { MessageContentComplex } from "@langchain/core/messages";
+import { ContentBlock } from "@langchain/core/messages";
 import { Fragment } from "react/jsx-runtime";
 import { isAgentInboxInterruptSchema } from "@/lib/agent-inbox-interrupt";
 import { ThreadView } from "../agent-inbox";
@@ -42,7 +42,7 @@ function CustomComponent({
 }
 
 function parseAnthropicStreamedToolCalls(
-  content: MessageContentComplex[],
+  content: ContentBlock[],
 ): AIMessage["tool_calls"] {
   const toolCallContents = content.filter((c) => c.type === "tool_use" && c.id);
 
@@ -142,8 +142,8 @@ export function AssistantMessage({
               <ThreadView interrupt={threadInterrupt.value} />
             )}
           {threadInterrupt?.value &&
-          !isAgentInboxInterruptSchema(threadInterrupt.value) &&
-          isLastMessage ? (
+            !isAgentInboxInterruptSchema(threadInterrupt.value) &&
+            isLastMessage ? (
             <GenericInterruptView interrupt={threadInterrupt.value} />
           ) : null}
           <div
