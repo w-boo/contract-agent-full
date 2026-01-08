@@ -20,6 +20,7 @@ import {
   PanelRightOpen,
   PanelRightClose,
   SquarePen,
+  Plus,
 } from "lucide-react";
 import { useQueryState, parseAsBoolean } from "nuqs";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
@@ -28,6 +29,8 @@ import { toast } from "sonner";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
+import { useFileUpload } from "@/hooks/use-file-upload";
+import { ContentBlocksPreview } from "./ContentBlocksPreview";
 import { GitHubSVG } from "../icons/github";
 import {
   Tooltip,
@@ -109,6 +112,16 @@ export function Thread() {
   const [firstTokenReceived, setFirstTokenReceived] = useState(false);
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
 
+  const {
+    contentBlocks,
+    setContentBlocks,
+    handleFileUpload,
+    dropRef,
+    removeBlock,
+    dragOver,
+    handlePaste,
+  } = useFileUpload();
+
   const stream = useStreamContext();
   const messages = stream.messages;
   const isLoading = stream.isLoading;
@@ -157,15 +170,19 @@ export function Thread() {
     prevMessageLength.current = messages.length;
   }, [messages]);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((input.trim().length === 0 && contentBlocks.length === 0) || isLoading)
+      return;
     setFirstTokenReceived(false);
 
     const newHumanMessage: Message = {
       id: uuidv4(),
       type: "human",
-      content: input,
+      content: [
+        ...(input.trim().length > 0 ? [{ type: "text", text: input }] : []),
+        ...contentBlocks,
+      ] as Message["content"],
     };
 
     const toolMessages = ensureToolCallsHaveResponses(stream.messages);
@@ -185,6 +202,7 @@ export function Thread() {
     );
 
     setInput("");
+    setContentBlocks([]);
   };
 
   const handleRegenerate = (
@@ -381,14 +399,27 @@ export function Thread() {
 
                 <ScrollToBottom className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 animate-in fade-in-0 zoom-in-95" />
 
-                <div className="bg-muted rounded-2xl border shadow-xs mx-auto mb-8 w-full max-w-3xl relative z-10">
+                <div
+                  ref={dropRef}
+                  className={cn(
+                    "bg-muted rounded-2xl border shadow-xs mx-auto mb-8 w-full max-w-3xl relative z-10 transition-all",
+                    dragOver
+                      ? "border-primary border-2 border-dotted"
+                      : "border border-solid",
+                  )}
+                >
                   <form
                     onSubmit={handleSubmit}
                     className="grid grid-rows-[1fr_auto] gap-2 max-w-3xl mx-auto"
                   >
+                    <ContentBlocksPreview
+                      blocks={contentBlocks}
+                      onRemove={removeBlock}
+                    />
                     <textarea
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
+                      onPaste={handlePaste}
                       onKeyDown={(e) => {
                         if (
                           e.key === "Enter" &&
@@ -406,7 +437,7 @@ export function Thread() {
                       className="p-3.5 pb-0 border-none bg-transparent field-sizing-content shadow-none ring-0 outline-none focus:outline-none focus:ring-0 resize-none"
                     />
 
-                    <div className="flex items-center justify-between p-2 pt-4">
+                    <div className="flex items-center gap-6 p-2 pt-4">
                       <div>
                         <div className="flex items-center space-x-2">
                           <Switch
@@ -422,16 +453,40 @@ export function Thread() {
                           </Label>
                         </div>
                       </div>
+                      <Label
+                        htmlFor="file-input"
+                        className="flex cursor-pointer items-center gap-2"
+                      >
+                        <Plus className="size-5 text-gray-600" />
+                        <span className="text-sm text-gray-600">
+                          Upload PDF or Image
+                        </span>
+                      </Label>
+                      <input
+                        id="file-input"
+                        type="file"
+                        onChange={handleFileUpload}
+                        multiple
+                        accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                        className="hidden"
+                      />
                       {stream.isLoading ? (
-                        <Button key="stop" onClick={() => stream.stop()}>
+                        <Button
+                          key="stop"
+                          onClick={() => stream.stop()}
+                          className="ml-auto"
+                        >
                           <LoaderCircle className="w-4 h-4 animate-spin" />
                           Cancel
                         </Button>
                       ) : (
                         <Button
                           type="submit"
-                          className="transition-all shadow-md"
-                          disabled={isLoading || !input.trim()}
+                          className="ml-auto transition-all shadow-md"
+                          disabled={
+                            isLoading ||
+                            (!input.trim() && contentBlocks.length === 0)
+                          }
                         >
                           Send
                         </Button>
