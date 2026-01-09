@@ -2,18 +2,75 @@ import * as z from "zod";
 import { tool } from "@langchain/core/tools";
 import { CohereClientV2 } from 'cohere-ai';
 import { QdrantVectorStore } from "@langchain/qdrant";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { Embeddings } from "@langchain/core/embeddings";
 
-const embeddings = new OpenAIEmbeddings({
-    model: "text-embedding-3-large",
-    apiKey: process.env.OPENAI_API_KEY,
+class JinaEmbeddingsV4 extends Embeddings {
+    private apiKey: string;
+    private model: string;
+
+    constructor(config: { apiKey: string; model?: string }) {
+        super({});
+        this.apiKey = config.apiKey;
+        this.model = config.model || "jina-embeddings-v4";
+    }
+
+    async embedDocuments(texts: string[]): Promise<number[][]> {
+        const response = await fetch("https://api.jina.ai/v1/embeddings", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${this.apiKey}`,
+            },
+            body: JSON.stringify({
+                model: this.model,
+                task: "retrieval.passage",
+                input: texts,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Jina API error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.data.map((item: any) => item.embedding);
+    }
+
+    async embedQuery(text: string): Promise<number[]> {
+        const response = await fetch("https://api.jina.ai/v1/embeddings", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${this.apiKey}`,
+            },
+            body: JSON.stringify({
+                model: this.model,
+                task: "retrieval.query",
+                input: [text],
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Jina API error: ${response.status} ${errorText}`);
+        }
+
+        const data = await response.json();
+        return data.data[0].embedding;
+    }
+}
+
+const embeddings = new JinaEmbeddingsV4({
+    apiKey: process.env.JINA_API_KEY!,
+    model: "jina-embeddings-v4",
 });
 
 const vectorStore = await QdrantVectorStore.fromExistingCollection(embeddings, {
     url: process.env.QDRANT_URL,
     apiKey: process.env.QDRANT_API_KEY,
-    collectionName: "dance-contract",
-    contentPayloadKey: "page_content",
+    collectionName: "MyCollection",
+    contentPayloadKey: "text",
 });
 
 const cohere = new CohereClientV2({
