@@ -3,7 +3,59 @@ import { tool } from "@langchain/core/tools";
 import { CohereClientV2 } from 'cohere-ai';
 import { QdrantClient } from "@qdrant/js-client-rest";
 
+// LRU Cache for embedding queries
+class EmbeddingCache {
+    private cache: Map<string, { embedding: number[], timestamp: number }>;
+    private maxSize: number;
+    private ttl: number; // Time to live in milliseconds
+
+    constructor(maxSize = 100, ttlMinutes = 60) {
+        this.cache = new Map();
+        this.maxSize = maxSize;
+        this.ttl = ttlMinutes * 60 * 1000;
+    }
+
+    get(key: string): number[] | null {
+        const entry = this.cache.get(key);
+        if (!entry) return null;
+
+        // Check if entry has expired
+        if (Date.now() - entry.timestamp > this.ttl) {
+            this.cache.delete(key);
+            return null;
+        }
+
+        // Move to end (most recently used)
+        this.cache.delete(key);
+        this.cache.set(key, entry);
+        return entry.embedding;
+    }
+
+    set(key: string, embedding: number[]): void {
+        // Remove oldest entry if cache is full
+        if (this.cache.size >= this.maxSize) {
+            const firstKey = this.cache.keys().next().value;
+            if (firstKey) {
+                this.cache.delete(firstKey);
+            }
+        }
+
+        this.cache.set(key, {
+            embedding,
+            timestamp: Date.now(),
+        });
+    }
+}
+
+const embeddingCache = new EmbeddingCache(100, 60);
+
 async function embedQuery(text: string): Promise<number[]> {
+    // Check cache first
+    const cached = embeddingCache.get(text);
+    if (cached) {
+        return cached;
+    }
+
     const response = await fetch("https://api.jina.ai/v1/embeddings", {
         method: "POST",
         headers: {
@@ -23,7 +75,12 @@ async function embedQuery(text: string): Promise<number[]> {
     }
 
     const data = await response.json();
-    return data.data[0].embedding;
+    const embedding = data.data[0].embedding;
+
+    // Cache the result
+    embeddingCache.set(text, embedding);
+
+    return embedding;
 }
 
 const qdrantClient = new QdrantClient({
@@ -41,7 +98,7 @@ export const retrieveTool = tool(
 
         const queryResult = await qdrantClient.query("MyCollection", {
             query: queryEmbedding,
-            limit: 40,
+            limit: 15,
             with_payload: true,
         });
 
