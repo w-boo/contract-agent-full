@@ -14,7 +14,7 @@
     "lint:fix": "turbo lint:fix"
   },
   "devDependencies": {
-    "turbo": "latest",
+    "turbo": "^2.3.3",
     "tsx": "^4.19.1",
     "typescript": "^5",
     "eslint": "^9.19.0",

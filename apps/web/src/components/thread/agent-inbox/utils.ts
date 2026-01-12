@@ -1,6 +1,6 @@
 import { BaseMessage, isBaseMessage } from "@langchain/core/messages";
 import { format } from "date-fns";
-import { startCase } from "lodash";
+import startCase from "lodash.startcase";
 import { HumanResponseWithEdits, SubmitType } from "./types";
 import { HumanInterrupt } from "@langchain/langgraph/prebuilt";
 
