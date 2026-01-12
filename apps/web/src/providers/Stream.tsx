@@ -5,7 +5,7 @@ import React, {
   useState,
   useEffect,
 } from "react";
-import { useStream } from "@langchain/langgraph-sdk/react";
+import { useStream, type UseStream } from "@langchain/langgraph-sdk/react";
 import { type Message } from "@langchain/langgraph-sdk";
 import {
   uiMessageReducer,
@@ -25,18 +25,17 @@ import { toast } from "sonner";
 
 export type StateType = { messages: Message[]; ui?: UIMessage[] };
 
-const useTypedStream = useStream<
-  StateType,
-  {
-    UpdateType: {
-      messages?: Message[] | Message | string;
-      ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
-    };
-    CustomEventType: UIMessage | RemoveUIMessage;
-  }
->;
+type StreamBag = {
+  UpdateType: {
+    messages?: Message[] | Message | string;
+    ui?: (UIMessage | RemoveUIMessage)[] | UIMessage | RemoveUIMessage;
+  };
+  CustomEventType: UIMessage | RemoveUIMessage;
+};
 
-type StreamContextType = ReturnType<typeof useTypedStream>;
+const useTypedStream = useStream<StateType, StreamBag>;
+
+type StreamContextType = UseStream<StateType, StreamBag>;
 const StreamContext = createContext<StreamContextType | undefined>(undefined);
 
 async function sleep(ms = 4000) {

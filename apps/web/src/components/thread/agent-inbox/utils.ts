@@ -1,4 +1,4 @@
-import { BaseMessage, isBaseMessage } from "@langchain/core/messages";
+import { BaseMessage } from "@langchain/core/messages";
 import { format } from "date-fns";
 import startCase from "lodash.startcase";
 import { HumanResponseWithEdits, SubmitType } from "./types";
@@ -12,7 +12,7 @@ export function isArrayOfMessages(
   value: Record<string, any>[],
 ): value is BaseMessage[] {
   if (
-    value.every(isBaseMessage) ||
+    value.every((v) => BaseMessage.isInstance(v)) ||
     (Array.isArray(value) &&
       value.every(
         (v) =>
@@ -29,7 +29,7 @@ export function isArrayOfMessages(
 }
 
 export function baseMessageObject(item: unknown): string {
-  if (isBaseMessage(item)) {
+  if (BaseMessage.isInstance(item)) {
     const contentText =
       typeof item.content === "string"
         ? item.content
@@ -38,11 +38,9 @@ export function baseMessageObject(item: unknown): string {
     if ("tool_calls" in item) {
       toolCallText = JSON.stringify(item.tool_calls, null);
     }
-    if ("type" in item) {
-      return `${item.type}:${contentText ? ` ${contentText}` : ""}${toolCallText ? ` - Tool calls: ${toolCallText}` : ""}`;
-    } else if ("_getType" in item) {
-      return `${item._getType()}:${contentText ? ` ${contentText}` : ""}${toolCallText ? ` - Tool calls: ${toolCallText}` : ""}`;
-    }
+    // BaseMessage always has a type property
+    const messageType = item.type as string;
+    return `${messageType}:${contentText ? ` ${contentText}` : ""}${toolCallText ? ` - Tool calls: ${toolCallText}` : ""}`;
   } else if (
     typeof item === "object" &&
     item &&

@@ -20,12 +20,7 @@ interface StateViewRecursiveProps {
 }
 
 const messageTypeToLabel = (message: BaseMessage) => {
-  let type = "";
-  if ("type" in message) {
-    type = message.type as string;
-  } else {
-    type = message._getType();
-  }
+  const type = message.type as string;
 
   switch (type) {
     case "human":
@@ -248,7 +243,7 @@ export function StateView({
       className={cn(
         "flex flex-row gap-0 w-full",
         view === "state" &&
-          "border-t-[1px] lg:border-t-[0px] lg:border-l-[1px] border-gray-100 ",
+        "border-t-[1px] lg:border-t-[0px] lg:border-l-[1px] border-gray-100 ",
       )}
     >
       {view === "description" && (
